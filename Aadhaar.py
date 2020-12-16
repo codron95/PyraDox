@@ -12,6 +12,10 @@ import pytesseract
 from pytesseract import Output
 import re
 import os
+import math
+import numpy as np
+from scipy import ndimage
+import face_recognition
 
 
 class Aadhaar_Card():
