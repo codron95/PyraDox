@@ -5,6 +5,7 @@ LABEL maintainer="Utsav Mishra <https://festivitymishra.github.io/>"
 # Install dependencies and Google tesseract
 RUN apt-get update && \
     apt-get install -y git pkg-config && \
+    apt-get install -y build-essential cmake && \
     apt-get install -y libsm6 libxext6 libxrender-dev && \
     apt-get install -y python-pip && \
     apt-get install -y tesseract-ocr && \

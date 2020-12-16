@@ -14,6 +14,9 @@ import cv2
 import numpy as np
 import base64
 import os
+import uuid
+
+import preprocessor
 # Initialize the Flask application
 app = Flask(__name__)
 
@@ -21,7 +24,7 @@ config = {'orient' : True,    #corrects orientation of image default -> True
           'skew' : False,     #corrects skewness of image default -> True
           'crop': True,       #crops document out of image default -> True
           'contrast' : True,  #Bnw for Better OCR default -> True
-          'psm': [3,4,6],     #Google Tesseract  psm modes by default 3,4,6. 
+          'psm': [3,4,6],     #Google Tesseract  psm modes by default 3,4,6.
           'mask_color': (0, 165, 255),  #Masking color BGR Format
           'brut_psm': [6]     #Note : Keep only one psm for brut mask (6) is good to start
           }
@@ -46,7 +49,7 @@ def validate():
     #print(r)
     content_type = 'application/json'
     headers = {'content-type': content_type}
-    
+
     return Response(response=jsonpickle.encode({'validity':ac.validate(str(r['test_number']))}), status=200, mimetype="application/json", headers=headers)
 
 
@@ -57,7 +60,7 @@ def validate():
 def ocr():
 #    print("request",request)
     r = request.get_json(force=True)  #force=True #content type application/json
-    temp_name = "123.png" 
+    temp_name = "123.png"
     image = r['doc_b64'] # raw data with base64 encoding
     decoded_data = base64.b64decode(image)
     np_data = np.fromstring(decoded_data,np.uint8)
@@ -74,17 +77,20 @@ def ocr():
 def mask():
     flag_mask = 0
     r = request.get_json(force=True)  #force=True #content type application/json
-    temp_name = "temp_unmasked.png" 
+    id_ = uuid.uuid4().hex
+    temp_name = "/tmp/" + id_ + ".png"
     image = r['doc_b64'] # raw data with base64 encoding
     decoded_data = base64.b64decode(image)
     np_data = np.fromstring(decoded_data,np.uint8)
     img = cv2.imdecode(np_data,cv2.IMREAD_UNCHANGED)
     cv2.imwrite(temp_name,img)
-    write = "temp_masked.png"
-    flag_mask = ac.mask_image(temp_name, write, r['aadhaar'])
+    write = "/tmp/" + id_ + "_masked.png"
+    ac_helper = Aadhaar_Card(config)
+    flag_mask = ac_helper.mask_image(temp_name, write, r['aadhaar'])
     delete_file(temp_name)
     content_type = 'application/json'
     headers = {'content-type': content_type}
+    print(temp_name + " -> " + write)
 #    print(flag_mask)
     if flag_mask == 0:
         return Response(response=jsonpickle.encode({'doc_b64_masked':'None', 'is_masked': False}), status=200, mimetype="application/json", headers=headers)
@@ -100,12 +106,13 @@ def mask():
 @app.route('/api/brut_mask', methods=['GET','POST'])
 def brut_mask():
     r = request.get_json(force=True)  #force=True #content type application/json
-    temp_name = "temp_unmasked.png" 
+    temp_name = "temp_unmasked.png"
     image = r['doc_b64'] # raw data with base64 encoding
     decoded_data = base64.b64decode(image)
     np_data = np.fromstring(decoded_data,np.uint8)
     img = cv2.imdecode(np_data,cv2.IMREAD_UNCHANGED)
-    cv2.imwrite(temp_name,img)
+    preprocessed_img = preprocessor.process(img.copy())
+    cv2.imwrite(temp_name, preprocessed_img)
     write = "temp_brut_masked.png"
     mask_status = ac.mask_nums(temp_name, write)
     delete_file(temp_name)
@@ -128,7 +135,7 @@ def brut_mask():
 def sample_pipe():
     flag_mask = 0
     r = request.get_json(force=True)  #force=True #content type application/json
-    temp_name = "temp_unmasked.png" 
+    temp_name = "temp_unmasked.png"
     image = r['doc_b64'] # raw data with base64 encoding
     decoded_data = base64.b64decode(image)
     np_data = np.fromstring(decoded_data,np.uint8)
@@ -137,7 +144,7 @@ def sample_pipe():
     aadhaar_list = ac.extract(temp_name)
     content_type = 'application/json'
     headers = {'content-type': content_type}
-    
+
     if len(aadhaar_list) == 0 and r['brut']:
         mode_executed = "BRUT-OCR-MASKING"
         write = "temp_brut_masked.png"
@@ -148,11 +155,11 @@ def sample_pipe():
         #convert byte to string
         encoded_string = img_bytes.decode("utf-8")
         return Response(response=jsonpickle.encode({'doc_b64_masked':encoded_string, 'is_masked': True,'mode_executed' : mode_executed}), status=200, mimetype="application/json", headers=headers)
-        
+
     if len(aadhaar_list) == 0 and not r['brut']:
         mode_executed = "OCR-MASKING"
         return Response(response=jsonpickle.encode({'doc_b64_masked':'None', 'is_masked': False, 'error':'Unable to find aadhaar number','mode_executed' : mode_executed}), status=200, mimetype="application/json", headers=headers)
-        
+
     if len(aadhaar_list) > 0 :
         mode_executed = "OCR-MASKING"
         # for masking first 8 digits from the number
@@ -170,5 +177,3 @@ def sample_pipe():
 
 # start flask app
 app.run(host="0.0.0.0", port=9001,threaded=True) #debug = True
-
-

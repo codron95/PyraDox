@@ -13,6 +13,7 @@ from pytesseract import Output
 import re
 import os
 
+
 class Aadhaar_Card():
     #Constructor
     def __init__(self,config = {'orient' : True,'skew' : True,'crop': True,'contrast' : True,'psm': [3,4,6],'mask_color': (0, 165, 255), 'brut_psm': [6]}):
@@ -20,7 +21,7 @@ class Aadhaar_Card():
     # Validates Aadhaar card numbers using Verhoeff Algorithm.
     # Fails if the fake number is generated using same Algorithm.
     def validate(self,aadhaarNum):
-        
+
         mult = [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [1, 2, 3, 4, 0, 6, 7, 8, 9, 5], [2, 3, 4, 0, 1, 7, 8, 9, 5, 6],
             [3, 4, 0, 1, 2, 8, 9, 5, 6, 7], [4, 0, 1, 2, 3, 9, 5, 6, 7, 8], [5, 9, 8, 7, 6, 0, 4, 3, 2, 1],
             [6, 5, 9, 8, 7, 1, 0, 4, 3, 2], [7, 6, 5, 9, 8, 2, 1, 0, 4, 3], [8, 7, 6, 5, 9, 3, 2, 1, 0, 4],
@@ -41,23 +42,22 @@ class Aadhaar_Card():
                 x = mult[x][perm[(j % 8)][int(aadhaarNum[i])]]
                 j += 1
             if x == 0:
-                return 1 
+                return 1
             else:
-                return 0 
+                return 0
 
         except ValueError:
-            return 0 
+            return 0
         except IndexError:
-            return 0 
-        
+            return 0
 
-        
+
+
     def extract(self, path):  #("path of input image")
         self.image_path = path
         self.read_image_cv()
         if self.config['orient']:
             self.cv_img = self.rotate(self.cv_img)
-            
         '''
 
             try:
@@ -66,23 +66,23 @@ class Aadhaar_Card():
                 self.read_image_pil()
             else:
                 self.cv_img.save('1_temp.png')
-                self.pil_img = Image.open('1_temp.png')     
+                self.pil_img = Image.open('1_temp.png')
                 os.remove('1_temp.png')
-        
+
         self.pil_img = self.pil_img.convert('RGBA')
         '''
-            
+
         if self.config['skew']:
             print("skewness correction not available")
-        
+
         if self.config['crop']:
             print("Smart Crop not available")
-        
+
         if self.config['contrast']:
             self.cv_img  = self.contrast_image(self.cv_img)
             #self.pil_img  = self.contrast_image(self.pil_img )
             print("correcting contrast")
-            
+
         aadhaars = set()
         for i in range(len(self.config['psm'])):
             t = self.text_extractor(self.cv_img,self.config['psm'][i])
@@ -103,7 +103,7 @@ class Aadhaar_Card():
                 aadhaars.add(uid[0].replace(" ", ""))
 
         return list(aadhaars)
-    
+
     def mask_image(self, path, write, aadhaar_list):
         #print("Read Path => ", path, " write path => ",write, "aadhaar list =>",aadhaar_list)
         self.mask_count = 0
@@ -114,11 +114,11 @@ class Aadhaar_Card():
                 if (self.mask_aadhaar(aadhaar_list[i],write,self.config['psm'][j]))>0:
                     self.mask_count = self.mask_count + 1
                 #print(" :\/ ",self.mask_count)
-            
+
         #print("Final Mask Count =>",self.mask_count)
         cv2.imwrite(write,self.mask)
         return self.mask_count
-    
+
     def mask_aadhaar(self, uid, out_path, psm):
         d = self.box_extractor(self.mask, psm)
         n_boxes = len(d['level'])
@@ -129,19 +129,19 @@ class Aadhaar_Card():
             if string.isdigit() and string in uid and len(string)>=2:
                 (x, y, w, h) = (d['left'][i], d['top'][i], d['width'][i], d['height'][i])
                 cv2.rectangle(self.mask, (x, y), (x + w, y + h), color, cv2.FILLED)
-                count_of_match = count_of_match + 1 
+                count_of_match = count_of_match + 1
             else:
                 count_of_match = count_of_match + 0
-        return count_of_match 
+        return count_of_match
 
     def read_image_cv(self):
         self.cv_img = cv2.imread(str(self.image_path), cv2.IMREAD_COLOR)
-        
+
     '''
     def read_image_pil(self):
         self.pil_img = Image.open(self.image_path)
     '''
-        
+
     def mask_nums(self, input_file, output_file):
         img = cv2.imread(str(input_file), cv2.IMREAD_COLOR)
         for i in range(len(self.config['brut_psm'])):      #'brut_psm': [6]
@@ -159,43 +159,43 @@ class Aadhaar_Card():
         cv2.imwrite(output_file,img)
 
         return "Done"
-    
+
     def rotate_only(self, img, angle_in_degrees):
         self.img = img
         self.angle_in_degrees = angle_in_degrees
         rotated = ndimage.rotate(self.img, self.angle_in_degrees)
         return rotated
-    
+
     def is_image_upside_down(self, img):
         self.img = img
         face_locations = face_recognition.face_locations(self.img)
         encodings = face_recognition.face_encodings(self.img, face_locations)
         image_is_upside_down = (len(encodings) == 0)
         return image_is_upside_down
-    
-    ''' 
+
+    '''
     def save_image(self, img):
         self.img = img
         cv2.imwrite('orientation_corrected.jpg', self.img)
 
-           
+
     def display(self, img, frameName="OpenCV Image"):
         self.img = img
         self.frameName = frameName
-        h, w = self.img.shape[0:2]   
+        h, w = self.img.shape[0:2]
         neww = 800
         newh = int(neww*(h/w))
         self.img = cv2.resize(self.img, (neww, newh))
         cv2.imshow(self.frameName, self.img)
         cv2.waitKey(0)
     '''
-    
+
     # Corrects orientation of image using tesseract OSD if rotation Angle is < 100.
     def rotate(self,img):
         #def orientation_correction(img): #, save_image = False):
-        # GrayScale Conversion for the Canny Algorithm 
+        # GrayScale Conversion for the Canny Algorithm
         self.img = img
-        img_gray = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY) 
+        img_gray = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)
         #self.display(img_gray)
         # Canny Algorithm for edge detection was developed by John F. Canny not Kennedy!! :)
         img_edges = cv2.Canny(img_gray, 100, 100, apertureSize=3)
@@ -208,18 +208,18 @@ class Aadhaar_Card():
                 cv2.line(img_copy,(x1,y1),(x2,y2),(0,255,0),2)
         #cv2.imshow('hough',img_copy)
         #cv2.waitKey(0)
-        
+
         angles = []
         for x1, y1, x2, y2 in lines[0]:
             angle = math.degrees(math.atan2(y2 - y1, x2 - x1))
             angles.append(angle)
-        
+
         # Getting the median angle
         median_angle = np.median(angles)
         # Rotating the image with this median angle
         img_rotated = self.rotate_only(self.img, median_angle)
         #self.display(img_rotated)
-        
+
         if self.is_image_upside_down(img_rotated):
             print("rotate to 180 degree")
             angle = -180
@@ -237,8 +237,8 @@ class Aadhaar_Card():
             print("image is straight")
             return img_rotated
 
-        
-    # Turns images BnW using pixels, didn't have much success with this and skipped in final production 
+
+    # Turns images BnW using pixels, didn't have much success with this and skipped in final production
     def contrast_image(self, img):
         self.img = img
         gray = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)
@@ -246,7 +246,7 @@ class Aadhaar_Card():
         thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
         #self.display(thresh)
         return thresh
-    
+
     # Extracts Texts from images
     def text_extractor(self, img, psm):
         config  = ('-l eng --oem 3 --psm '+ str(psm))
@@ -255,7 +255,7 @@ class Aadhaar_Card():
     # Extracts Texts and their bounding boxes in form of txt
     def box_extractor(self, img, psm):
         config  = ('-l eng --oem 3 --psm '+ str(psm))
-        t = pytesseract.image_to_data(img, lang='eng', output_type=Output.DICT, config=config) 
+        t = pytesseract.image_to_data(img, lang='eng', output_type=Output.DICT, config=config)
         return t
 
     def find_uid(self,text2):
@@ -274,7 +274,7 @@ class Aadhaar_Card():
         except Exception:
             pass
         return list(uid)
-    
+
     #Function to validate if an image contains text showing its an aadhaar card
     def is_aadhaar_card(self, text):
                res=text.split()
@@ -284,9 +284,7 @@ class Aadhaar_Card():
                       aadhaar_number=aadhaar_number  + word + ' '
                if len(aadhaar_number)>=14:
                    return aadhaar_number
-                   
+
                else:
 
                     return "Not Found"
-                
-                
