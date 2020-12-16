@@ -135,20 +135,22 @@ def brut_mask():
 def sample_pipe():
     flag_mask = 0
     r = request.get_json(force=True)  #force=True #content type application/json
-    temp_name = "temp_unmasked.png"
+    id_ = uuid.uuid4().hex
+    temp_name = "/tmp/" + id_ + ".png"
     image = r['doc_b64'] # raw data with base64 encoding
     decoded_data = base64.b64decode(image)
     np_data = np.fromstring(decoded_data,np.uint8)
     img = cv2.imdecode(np_data,cv2.IMREAD_UNCHANGED)
     cv2.imwrite(temp_name,img)
-    aadhaar_list = ac.extract(temp_name)
+    ac_helper = Aadhaar_Card(config)
+    aadhaar_list = ac_helper.extract(temp_name)
     content_type = 'application/json'
     headers = {'content-type': content_type}
 
     if len(aadhaar_list) == 0 and r['brut']:
         mode_executed = "BRUT-OCR-MASKING"
-        write = "temp_brut_masked.png"
-        mask_status = ac.mask_nums(temp_name, write)
+        write = "/tmp/" + id_ + "_masked.png"
+        mask_status = ac_helper.mask_nums(temp_name, write)
         delete_file(temp_name)
         img_bytes = to_image_string(write)
         delete_file(write)
@@ -165,14 +167,14 @@ def sample_pipe():
         # for masking first 8 digits from the number
         ori_aadhaar_list = aadhaar_list
         aadhaar_list = list(map(lambda x: x[:8] , aadhaar_list)) # Comment out this incase you want to mask entire aadhaar
-        write = "temp_masked.png"
-        flag_mask = ac.mask_image(temp_name, write, aadhaar_list)
+        write = "/tmp/" + id_ + "_masked.png"
+        flag_mask = ac_helper.mask_image(temp_name, write, aadhaar_list)
         delete_file(temp_name)
         img_bytes = to_image_string(write)
         delete_file(write)
         #convert byte to string
         encoded_string = img_bytes.decode("utf-8")
-        valid_aadhaar_list = list(filter(lambda x: (ac.validate(x) == 1) , ori_aadhaar_list))
+        valid_aadhaar_list = list(filter(lambda x: (ac_helper.validate(x) == 1) , ori_aadhaar_list))
         return Response(response=jsonpickle.encode({'doc_b64_masked':encoded_string, 'is_masked': True,'mode_executed' : mode_executed, 'aadhaar_list':ori_aadhaar_list, 'valid_aadhaar_list':valid_aadhaar_list}), status=200, mimetype="application/json", headers=headers)
 
 # start flask app
