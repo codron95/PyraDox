@@ -178,4 +178,5 @@ def sample_pipe():
         return Response(response=jsonpickle.encode({'doc_b64_masked':encoded_string, 'is_masked': True,'mode_executed' : mode_executed, 'aadhaar_list':ori_aadhaar_list, 'valid_aadhaar_list':valid_aadhaar_list}), status=200, mimetype="application/json", headers=headers)
 
 # start flask app
-app.run(host="0.0.0.0", port=9001,threaded=True) #debug = True
+if __name__ == '__main__':
+    app.run(host="0.0.0.0", port=8080,threaded=True)
