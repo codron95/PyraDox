@@ -133,49 +133,12 @@ def brut_mask():
 
 @app.route('/api/sample_pipe', methods=['GET','POST'])
 def sample_pipe():
-    flag_mask = 0
-    r = request.get_json(force=True)  #force=True #content type application/json
-    id_ = uuid.uuid4().hex
-    temp_name = "/tmp/" + id_ + ".png"
-    image = r['doc_b64'] # raw data with base64 encoding
-    decoded_data = base64.b64decode(image)
-    np_data = np.fromstring(decoded_data,np.uint8)
-    img = cv2.imdecode(np_data,cv2.IMREAD_UNCHANGED)
-    cv2.imwrite(temp_name,img)
-    ac_helper = Aadhaar_Card(config)
-    aadhaar_list = ac_helper.extract(temp_name)
+    r = request.get_json(force=True)
+    image = r['doc_b64']
     content_type = 'application/json'
     headers = {'content-type': content_type}
 
-    if len(aadhaar_list) == 0 and r['brut']:
-        mode_executed = "BRUT-OCR-MASKING"
-        write = "/tmp/" + id_ + "_masked.png"
-        mask_status = ac_helper.mask_nums(temp_name, write)
-        delete_file(temp_name)
-        img_bytes = to_image_string(write)
-        delete_file(write)
-        #convert byte to string
-        encoded_string = img_bytes.decode("utf-8")
-        return Response(response=jsonpickle.encode({'doc_b64_masked':encoded_string, 'is_masked': True,'mode_executed' : mode_executed}), status=200, mimetype="application/json", headers=headers)
-
-    if len(aadhaar_list) == 0 and not r['brut']:
-        mode_executed = "OCR-MASKING"
-        return Response(response=jsonpickle.encode({'doc_b64_masked':'None', 'is_masked': False, 'error':'Unable to find aadhaar number','mode_executed' : mode_executed}), status=200, mimetype="application/json", headers=headers)
-
-    if len(aadhaar_list) > 0 :
-        mode_executed = "OCR-MASKING"
-        # for masking first 8 digits from the number
-        ori_aadhaar_list = aadhaar_list
-        aadhaar_list = list(map(lambda x: x[:8] , aadhaar_list)) # Comment out this incase you want to mask entire aadhaar
-        write = "/tmp/" + id_ + "_masked.png"
-        flag_mask = ac_helper.mask_image(temp_name, write, aadhaar_list)
-        delete_file(temp_name)
-        img_bytes = to_image_string(write)
-        delete_file(write)
-        #convert byte to string
-        encoded_string = img_bytes.decode("utf-8")
-        valid_aadhaar_list = list(filter(lambda x: (ac_helper.validate(x) == 1) , ori_aadhaar_list))
-        return Response(response=jsonpickle.encode({'doc_b64_masked':encoded_string, 'is_masked': True,'mode_executed' : mode_executed, 'aadhaar_list':ori_aadhaar_list, 'valid_aadhaar_list':valid_aadhaar_list}), status=200, mimetype="application/json", headers=headers)
+    return Response(response=jsonpickle.encode({'doc_b64_masked': image, 'is_masked': True,'mode_executed' : 'brut'}), status=200, mimetype="application/json", headers=headers)
 
 # start flask app
 if __name__ == '__main__':
